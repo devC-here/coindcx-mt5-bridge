@@ -1,5 +1,98 @@
-"""CoinDCX Spot client with an MT5-style order adapter."""
+"""CoinDCX Python SDK and MT5 Compatibility Bridge.
+
+Allows existing algorithmic trading strategies and bots built for MetaTrader 5 (MT5)
+to plug directly into CoinDCX with zero overhaul.
+
+Usage as MT5 drop-in:
+    from coindcx_mt5 import mt5
+    # or
+    import coindcx_mt5 as mt5
+
+    mt5.initialize()
+    rates = mt5.copy_rates_from_pos("BTCUSD", mt5.TIMEFRAME_M15, 0, 50)
+"""
+
 from .client import CoinDCXClient
-from .models import OrderRequest, Side, OrderType
+from .models import OrderRequest, OrderType, Side
 from .mt5_adapter import MT5OrderAdapter
-__all__ = ["CoinDCXClient", "MT5OrderAdapter", "OrderRequest", "Side", "OrderType"]
+
+# Import compat module as `mt5` alias
+from . import compat as mt5
+# Also re-export all compat symbols at package root so `import coindcx_mt5 as mt5` works identically
+from .compat import *
+
+__all__ = [
+    "CoinDCXClient",
+    "MT5OrderAdapter",
+    "OrderRequest",
+    "Side",
+    "OrderType",
+    "mt5",
+    # MT5 LifeCycle
+    "initialize",
+    "shutdown",
+    "version",
+    "last_error",
+    # MT5 Market Data
+    "copy_rates_from_pos",
+    "copy_rates_range",
+    "copy_rates_from",
+    "symbol_info",
+    "symbol_info_tick",
+    "symbol_select",
+    "symbols_total",
+    "symbols_get",
+    # MT5 Orders & Positions
+    "order_send",
+    "order_check",
+    "positions_get",
+    "positions_total",
+    "orders_get",
+    "orders_total",
+    "account_info",
+    # Configuration
+    "set_live_trading",
+    "is_live_trading",
+    "set_symbol_map",
+    "set_default_market",
+    "normalize_symbol",
+    # Constants
+    "TIMEFRAME_M1",
+    "TIMEFRAME_M2",
+    "TIMEFRAME_M3",
+    "TIMEFRAME_M4",
+    "TIMEFRAME_M5",
+    "TIMEFRAME_M6",
+    "TIMEFRAME_M10",
+    "TIMEFRAME_M12",
+    "TIMEFRAME_M15",
+    "TIMEFRAME_M20",
+    "TIMEFRAME_M30",
+    "TIMEFRAME_H1",
+    "TIMEFRAME_H2",
+    "TIMEFRAME_H3",
+    "TIMEFRAME_H4",
+    "TIMEFRAME_H6",
+    "TIMEFRAME_H8",
+    "TIMEFRAME_H12",
+    "TIMEFRAME_D1",
+    "TIMEFRAME_W1",
+    "TIMEFRAME_MN1",
+    "ORDER_TYPE_BUY",
+    "ORDER_TYPE_SELL",
+    "ORDER_TYPE_BUY_LIMIT",
+    "ORDER_TYPE_SELL_LIMIT",
+    "TRADE_ACTION_DEAL",
+    "TRADE_ACTION_PENDING",
+    "TRADE_RETCODE_DONE",
+    "TRADE_RETCODE_ERROR",
+    "POSITION_TYPE_BUY",
+    "POSITION_TYPE_SELL",
+    "SymbolInfo",
+    "Tick",
+    "AccountInfo",
+    "TradePosition",
+    "TradeOrder",
+    "OrderSendResult",
+    "OrderCheckResult",
+]

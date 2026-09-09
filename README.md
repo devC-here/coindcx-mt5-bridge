@@ -3,19 +3,93 @@
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/Rust-2021-DEA584?logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![Safety](https://img.shields.io/badge/Safety-Dry--Run%20Default-green)](#safety-features)
+[![Safety](https://img.shields.io/badge/Safety-Dry--Run%20Default-green)](#-safety-first-architecture)
+[![Tests](https://img.shields.io/badge/Tests-Passing-brightgreen)](#-running-tests)
 
-A modular, safety-first Python library designed to map MetaTrader 5 (MT5) algorithmic trading signals directly to CoinDCX Spot and Futures REST endpoints. Also features experimental low-latency kernel-bypass C (DPDK) and Rust UDP order creation harnesses for high-frequency trading research.
+A drop-in Python compatibility library and bridge that connects algorithmic trading strategies, indicators, and bots written for **MetaTrader 5 (MT5)** directly to **CoinDCX Spot and Futures** with **zero to minimal code overhaul**.
+
+---
+
+## 🎯 The Core Idea: Zero Code Overhaul
+
+If you have existing trading robots, indicators, or machine learning pipelines built for MT5, you don't need to rewrite your data parsing, order logic, or position tracking. Simply swap your import:
+
+```python
+# -------------------------------------------------------------
+# 1. SWAP YOUR IMPORT (Everything else stays identical!)
+# -------------------------------------------------------------
+# Instead of: import MetaTrader5 as mt5
+from coindcx_mt5 import mt5
+
+# 2. INITIALIZE SESSION
+if not mt5.initialize():
+    print("Failed to initialize MT5 bridge:", mt5.last_error())
+    quit()
+
+# 3. FETCH CANDLES (Returns exact MT5 numpy structured array!)
+rates = mt5.copy_rates_from_pos("BTCUSD", mt5.TIMEFRAME_M15, 0, 50)
+import pandas as pd
+df = pd.DataFrame(rates)  # Has columns: time, open, high, low, close, tick_volume, spread, real_volume
+
+# 4. REAL-TIME TICK
+tick = mt5.symbol_info_tick("BTCUSD")
+print(f"Bid: {tick.bid} | Ask: {tick.ask}")
+
+# 5. SEND ORDERS USING STANDARD MT5 REQUEST DICTIONARY
+request = {
+    "action": mt5.TRADE_ACTION_DEAL,
+    "symbol": "BTCUSD",
+    "volume": 0.001,
+    "type": mt5.ORDER_TYPE_BUY,
+    "price": tick.ask,
+    "sl": tick.ask * 0.98,
+    "tp": tick.ask * 1.04,
+    "magic": 123456,
+    "comment": "My MT5 Strategy on CoinDCX",
+}
+result = mt5.order_send(request)
+if result.retcode == mt5.TRADE_RETCODE_DONE:
+    print(f"Order filled! Deal #{result.deal} | Ticket #{result.order}")
+
+# 6. QUERY ACTIVE POSITIONS & ACCOUNT
+positions = mt5.positions_get(symbol="BTCUSD")
+account = mt5.account_info()
+print(f"Account Balance: {account.balance} {account.currency} | Equity: {account.equity}")
+
+# 7. SHUTDOWN
+mt5.shutdown()
+```
 
 ---
 
 ## 🚀 Key Features
 
-- **Safe by Default**: All order requests execute in dry-run mode unless both `live_trading=True` is set on client initialization **and** `confirm_live=True` is provided on the specific execution call.
-- **MT5 to CoinDCX Symbol Mapping**: Built-in order adapter converting MT5 tick volumes, lot sizes, and market codes to CoinDCX exchange standards.
-- **Zero Heavy Dependencies**: Built with native Python standard libraries (`urllib`, `hmac`, `hashlib`) for maximum portability and zero dependency bloat.
-- **Unit Tested**: Full test coverage of client signature generation, payload formatting, and dry-run safety gates.
-- **Low-Latency Experiments**: Includes a Rust UDP binary packet order sender and a C DPDK fast-path kernel-bypass settlement loop.
+- **Drop-in MT5 Compatibility**: Emulates the official `MetaTrader5` Python API (`initialize`, `copy_rates_from_pos`, `symbol_info_tick`, `order_send`, `positions_get`, `account_info`).
+- **Exact MT5 NumPy Structured Array Schema**: `copy_rates_from_pos` returns `numpy.ndarray` with dtype `[('time', '<i8'), ('open', '<f8'), ('high', '<f8'), ('low', '<f8'), ('close', '<f8'), ('tick_volume', '<i8'), ('spread', '<i4'), ('real_volume', '<i8')]`, ensuring 100% plug-and-play compatibility with `pandas.DataFrame(rates)`.
+- **Intelligent Symbol Normalization**: Automatically maps standard MT5 Forex/Crypto names (`BTCUSD`, `BTCUSDT`, `BTC/USDT`) to CoinDCX Futures (`B-BTC_USDT`) or CoinDCX Spot (`BTCUSDT`).
+- **Safe-by-Default Simulation**: Runs in high-fidelity simulation mode by default. Test your strategies against live CoinDCX orderbooks without risking real capital until you explicitly opt into live trading.
+- **Dynamic Real-Time PnL**: Simulated positions recalculate unrealized profit and loss in real-time against live market orderbooks.
+- **Low-Latency Research**: Includes experimental C DPDK kernel-bypass order settlement and Rust zero-copy UDP binary packet serialization harnesses.
+
+---
+
+## 🛡️ Safety-First Architecture
+
+By default, the bridge operates in **Simulation / Dry-Run Mode**:
+- `mt5.order_send()` validates request syntax, fills against live bid/ask prices, logs execution, and returns standard MT5 `TRADE_RETCODE_DONE` (10009).
+- Positions are tracked in an in-memory ledger with live mark-to-market valuations.
+
+### Enabling Live Real-Money Execution:
+To send real orders with actual capital to CoinDCX:
+```python
+# Enable in Python:
+mt5.set_live_trading(True)
+
+# Or set in environment:
+# export COINDCX_LIVE_TRADING=true
+# export COINDCX_API_KEY="your_api_key"
+# export COINDCX_API_SECRET="your_api_secret"
+```
 
 ---
 
@@ -24,18 +98,20 @@ A modular, safety-first Python library designed to map MetaTrader 5 (MT5) algori
 ```
 coindcx-mt5-bridge/
 ├── coindcx_mt5/              # Core Python package
-│   ├── __init__.py           # Package exports
+│   ├── __init__.py           # Package exports & mt5 alias
+│   ├── compat.py             # MT5 drop-in emulator module
 │   ├── client.py             # HMAC-SHA256 authenticated REST client
 │   ├── models.py             # Order models & payload builders
 │   └── mt5_adapter.py        # MT5 signal to CoinDCX order translator
 ├── examples/
-│   └── mt5_signal.py         # End-to-end signal processing example
+│   ├── mt5_dropin_demo.py    # Complete MA crossover strategy demo
+│   └── mt5_signal.py         # Signal conversion example
 ├── tests/
-│   └── test_client.py        # Unit tests
+│   ├── test_compat.py        # Full MT5 API compatibility tests
+│   └── test_client.py        # REST client & auth signature tests
 ├── hft-experiments/          # Low-latency research components
 │   ├── rust-order-sender/    # Zero-copy binary UDP packet sender (Rust)
 │   └── dpdk-settlement.c     # DPDK Ethernet fast-path order processor (C)
-├── .env.example              # Environment variables template
 ├── pyproject.toml            # Package configuration
 └── README.md
 ```
@@ -44,73 +120,70 @@ coindcx-mt5-bridge/
 
 ## 🛠️ Installation
 
-Clone the repository and install in editable mode:
-
 ```bash
-git clone https://github.com/your-username/coindcx-mt5-bridge.git
+git clone https://github.com/devC-here/coindcx-mt5-bridge.git
 cd coindcx-mt5-bridge
 pip install -e .
 ```
 
 ---
 
-## ⚙️ Configuration
+## 💡 Quick Start: Run the Drop-In Strategy Demo
 
-Copy the example environment file and set your CoinDCX API credentials:
+Run the end-to-end MT5 strategy demonstration:
 
 ```bash
-cp .env.example .env
+python examples/mt5_dropin_demo.py
 ```
 
-Edit `.env`:
-```env
-COINDCX_API_KEY=your_coindcx_api_key
-COINDCX_API_SECRET=your_coindcx_api_secret
+Sample output:
 ```
+======================================================================
+ CoinDCX MT5 Compatibility Bridge - Live Drop-In Demo
+======================================================================
+[+] Bridge initialized successfully!
+[+] Terminal Version: (500, 4260, '09 Sep 2026')
+[+] Mode: SIMULATION / DRY-RUN (Safe)
 
-> **Security Note:** Never commit your `.env` file or hardcode keys into source code.
+--- Account Status ---
+Login / ID : 100888
+Server     : CoinDCX-Sim
+Balance    : 10000.00 USDT
+Equity     : 10000.00 USDT
+Free Margin: 10000.00 USDT
 
----
+--- Real-Time Tick for BTCUSD ---
+Bid Price : $79,196.00
+Ask Price : $79,196.01
+Spread    : $0.01
 
-## 💡 Usage Example
+--- Fetching Historical Rates ---
+Latest Bar Close : $79,158.00
+Fast SMA (5)     : $79,152.68
+Slow SMA (15)    : $79,244.45
+Strategy Signal  : SELL (Trend Following MA Crossover)
 
-### 1. Simulated / Dry-Run Signal (Default)
+--- Sending Order Request ---
+Order: SELL 0.001 BTCUSD @ $79,196.00 | SL: $80,779.92 | TP: $76,028.16
+[+] Order Placed Successfully!
+    Deal ID  : #2000001
+    Order ID : #2000001
+    Volume   : 0.001
+    Price    : $79,196.00
+    Status   : Dry-run order filled successfully
 
-```python
-from coindcx_mt5 import CoinDCXClient, MT5OrderAdapter
+--- Open Positions (1) ---
+  Ticket #2000001 | BTCUSD SELL (Short) | Vol: 0.001 | Open: $79,196.00 | Now: $79,180.01 | Profit: $0.02
 
-# 1. Initialize client (dry_run mode is active by default)
-client = CoinDCXClient()
-
-# 2. Translate MT5 signal to CoinDCX order
-adapter = MT5OrderAdapter()
-order = adapter.convert_signal(
-    symbol="BTCUSDT",
-    side="buy",
-    volume=0.005,
-    order_type="market"
-)
-
-# 3. Process the order safely
-result = client.place_order(order)
-print("Dry run result:", result)
-```
-
-### 2. Live Execution (Explicit Confirmation Required)
-
-```python
-# Live trading requires explicit two-level confirmation
-client = CoinDCXClient(live_trading=True)
-
-# Level 1: client.live_trading == True
-# Level 2: confirm_live == True on order placement
-result = client.place_order(order, confirm_live=True)
-print("Live order response:", result)
+[+] Bridge session closed cleanly.
+======================================================================
 ```
 
 ---
 
 ## 🧪 Running Tests
+
+Execute the comprehensive test suite verifying the MT5 compatibility layer and REST client:
 
 ```bash
 python -m unittest discover -s tests -v
@@ -118,14 +191,13 @@ python -m unittest discover -s tests -v
 
 ---
 
-## ⚡ HFT & Low-Latency Experiments (`hft-experiments/`)
+## ⚙️ Configuration & Environment Variables
 
-- **Rust UDP Order Packet Generator**: Located in `hft-experiments/rust-order-sender`. Builds a fixed-point, 32-byte C-ABI compatible UDP binary payload with timestamped nonces for sub-microsecond serialization.
-  ```bash
-  cd hft-experiments/rust-order-sender
-  cargo run --release
-  ```
-- **DPDK Kernel-Bypass Fast Path**: Located in `hft-experiments/dpdk-settlement.c`. Demonstrates DPDK `rte_eth_rx_burst` zero-copy packet ingestion and fixed-width order matching.
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `COINDCX_API_KEY` | CoinDCX API Key for authenticated endpoints | `None` |
+| `COINDCX_API_SECRET` | CoinDCX API Secret for HMAC-SHA256 signatures | `None` |
+| `COINDCX_LIVE_TRADING` | Set to `true` to enable real order placement | `false` |
 
 ---
 

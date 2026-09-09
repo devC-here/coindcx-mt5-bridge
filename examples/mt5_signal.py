@@ -1,4 +1,8 @@
-"""MT5-style signal to CoinDCX. It remains dry-run by default."""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from coindcx_mt5 import CoinDCXClient, MT5OrderAdapter
 
 adapter = MT5OrderAdapter({"BTCUSD": "B-BTC_USDT"})

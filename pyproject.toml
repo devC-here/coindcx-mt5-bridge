@@ -4,9 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "coindcx-mt5-bridge"
-version = "0.1.0"
-description = "A safe CoinDCX Spot REST client and MT5-style order adapter"
+version = "0.2.0"
+description = "A drop-in Python compatibility layer and bridge for MetaTrader 5 (MT5) strategies on CoinDCX"
+readme = "README.md"
 requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.20.0",
+]
 
 [tool.setuptools.packages.find]
 include = ["coindcx_mt5*"]
