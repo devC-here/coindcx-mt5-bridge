@@ -1,9 +1,10 @@
-"""CoinDCX Python SDK and MT5 Compatibility Bridge.
+"""CoinDCX MT5 Compatibility Bridge Library.
 
-Allows existing algorithmic trading strategies and bots built for MetaTrader 5 (MT5)
-to plug directly into CoinDCX with zero overhaul.
+A clean, drop-in Python library emulating MetaTrader 5 (MT5).
+Allows algorithmic trading strategies, indicators, and bots built for MT5
+to plug directly into CoinDCX Spot & Futures with zero logic overhaul.
 
-Usage as MT5 drop-in:
+Usage:
     from coindcx_mt5 import mt5
     # or
     import coindcx_mt5 as mt5
@@ -12,21 +13,10 @@ Usage as MT5 drop-in:
     rates = mt5.copy_rates_from_pos("BTCUSD", mt5.TIMEFRAME_M15, 0, 50)
 """
 
-from .client import CoinDCXClient
-from .models import OrderRequest, OrderType, Side
-from .mt5_adapter import MT5OrderAdapter
-
-# Import compat module as `mt5` alias
 from . import compat as mt5
-# Also re-export all compat symbols at package root so `import coindcx_mt5 as mt5` works identically
 from .compat import *
 
 __all__ = [
-    "CoinDCXClient",
-    "MT5OrderAdapter",
-    "OrderRequest",
-    "Side",
-    "OrderType",
     "mt5",
     # MT5 LifeCycle
     "initialize",
